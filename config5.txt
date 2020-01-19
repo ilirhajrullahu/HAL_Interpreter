@@ -1,0 +1,7 @@
+HAL-Prozessoren:
+5 P5.txt
+6 P6.txt
+
+HAL-Verbindungen:
+5:3 > 6:2
+6:3 > 5:2

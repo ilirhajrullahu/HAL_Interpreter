@@ -1,0 +1,58 @@
+________________
+BEHOBENE FEHLER:
+
+FEHLER - FiFo hat bisher nur auf dem Register gearbeitet
+	 Removte Seiten werden nun auch auf der Festplatte (speicher) gesichert und von dort auch wieder geladen
+FEHLER - short parameter an 2-3 stellen (16bit - nur bis ca 30k Adressen)
+	 Anpassungen in mehreren Funktionen, die short verwendet haben
+FEHLER - get/setValue PageFrameNo wurde nicht richtig übergeben wenn eine neue Seite
+	 von der Festplatte geladen werden musste (pageerror)
+FEHLER - 65535! (nicht 65536) -> höchste virtuelle Adresse
+	 Anpassung im OS-ProgrammCode & im HAL-ProgrammCode
+
+____________________
+WEITERE ANPASSUNGEN:
+
+MMU Konstruktor (Nicht register initialisieren!) & im FIFO anpassen (nur register.page.remove wenn register.size == 4)
+	-> jetzt gibt es 64 Seitenfehler (+1 für zugriff auf LOAD 1037 schütte's code)
+	-> vorher wurde wegen der initialisierung nur 60 Seitenfehler erzeugt
+Random implementiert
+	-> RandomePageLoad-Modus hinzugefügt
+	-> Funktion: removeRandom() (ersetzt ggf. [FiFo] removeOldestPage())
+Zeitmessung implementiert
+	-> Zeitmessung startet bei START-befehl und endet bei ENDE-befehl
+
+____________________________________
+VERGLEICH LAUFZEIT UND SEITENFEHLER:
+
+ > PageLoadMode: FIFO (First In First Out) -> BEIM INITIALISIEREN MIT 1
+	Seitenfehler: 65
+	*64 Seitenfehler, da 64 Seiten gelesen werden
+	* 1 Seitenfehler, durch Schüttes HAL-Programmcode am Ende vAdress 1037 (PageNo 1) geladen wird
+			,-die vAdress 512 verursacht keinen weiteren Seitenfehler da PageFrameNo 0 immer im Register bleibt
+	Laufzeit: 1510 ms
+
+ > PageLoadMode: RPL (Random Page Load)  -> BEIM INITIALISIEREN MIT 1
+	Seitenfehler: ~90
+	*Für init-HAL Pgrm +1/4 der Fifo-Seitenfehler = Ø 80 (Begründung siehe ↓)
+	Laufzeit: ~1647 ms
+
+	* Im vgl. zu FiFo hat der RPL-Mode eine längere Laufzeit, da die PageNo 0 per 1:4 Zufall raus geschmissen
+			,-und anschließend immer wieder reingeladen wird.
+			,-PageNo 0 wird benötigt, da wir im HAL alle Adressen,
+			,-die indirekt verwendet werden (STOREIND) in vAdress 0
+			,-also in PageNo 0 temporär zwischenspeichern und somit immer wieder auf
+			,-PageNo 0 mit Offset 0 zugegriffen werden muss.
+			,-Daher kommt auch die höhere Anzahl an Seitenfehler.
+	
+	* In regulären Programmen, die nicht ständig auf viele in gleichen Adressbereich liegenden Adressen zurückgreifen müssen,
+	 		,-also keine Initialisierung aller Speicherstellen stattfindet,
+			,-kann RPL zu einer schnelleren Laufzeit und weniger Seitenfehler als FIFO führen.
+
+ > PageLoadMode: FIFO (First In First Out) -> BEIM INITIALISIEREN MIT Adresse / 2
+	Seitenfehler: 65
+	Laufzeit: 2774 ms
+
+ > PageLoadMode: RPL (Random Page Load)  -> BEIM INITIALISIEREN MIT Adresse / 2
+	Seitenfehler: ~85
+	Laufzeit: ~2659 ms
